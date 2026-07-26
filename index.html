@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor Wayback: Diversidad Sexual</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .top-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white; padding: 12px 20px; z-index: 1000;
+            display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .date-selector {
+            display: flex; align-items: center; gap: 10px; flex: 1; min-width: 250px;
+        }
+        .date-selector select {
+            flex: 1; padding: 8px 12px; border: none; border-radius: 6px;
+            background: rgba(255,255,255,0.95); color: #333; font-size: 14px;
+            cursor: pointer; font-weight: 600;
+        }
+        .badge {
+            padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 12px;
+            background: #00d084; color: white;
+        }
+        .badge-old { background: #ff6b6b; }
+        
+        #iframe-container { width: 100%; height: 100vh; padding-top: 60px; background: #fff; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        .nav-arrow {
+            position: fixed; top: 50%; transform: translateY(-50%);
+            width: 50px; height: 100px; background: rgba(0,0,0,0.4);
+            color: white; font-size: 32px; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; z-index: 999; transition: all 0.2s; border: none;
+        }
+        .nav-arrow:hover { background: rgba(0,0,0,0.7); width: 60px; }
+        #nav-left { left: 0; border-radius: 0 8px 8px 0; }
+        #nav-right { right: 0; border-radius: 8px 0 0 8px; }
+        
+        .country-info {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%);
+            color: white; padding: 60px 20px 20px; text-align: center; z-index: 999;
+            transition: opacity 0.3s ease;
+        }
+        .country-info.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .country-name { font-size: 22px; font-weight: 700; color: #4db8ff; }
+        .file-info { font-size: 12px; color: #aaa; margin-top: 5px; }
+        
+        .file-panel {
+            position: fixed;
+            right: -350px;
+            top: 60px;
+            width: 350px;
+            height: calc(100vh - 60px);
+            background: rgba(255,255,255,0.98);
+            overflow-y: scroll;
+            overflow-x: hidden;
+            z-index: 998;
+            transition: right 0.3s;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.2);
+        }
+        .file-panel.open { right: 0; }
+        
+        .file-panel::-webkit-scrollbar { width: 12px; }
+        .file-panel::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 6px; }
+        .file-panel::-webkit-scrollbar-thumb { background: #888; border-radius: 6px; border: 2px solid #f1f1f1; }
+        .file-panel::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        .file-panel-header {
+            background: #f0f4f8; padding: 15px; border-bottom: 2px solid #ddd;
+            position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; z-index: 10;
+        }
+        .close-panel-btn {
+            background: #ff6b6b; color: white; border: none; padding: 6px 12px;
+            border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;
+        }
+        .close-panel-btn:hover { background: #ff5252; }
+        
+        .region {
+            margin: 8px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        .region-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .region-header:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #653d8b 100%);
+        }
+        .region-header .arrow {
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
+        .region-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+        .region-content {
+            max-height: 10000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .region-content.collapsed {
+            max-height: 0;
+        }
+        
+        .file-item {
+            padding: 10px 16px;
+            margin: 4px 8px;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .file-item:hover {
+            background: #e8f4f8;
+            border-left-color: #2a5298;
+            transform: translateX(4px);
+        }
+        .file-item.active {
+            background: #dbeafe;
+            border-left-color: #1e3c72;
+            font-weight: 600;
+        }
+        
+        .btn {
+            padding: 6px 12px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+            background: rgba(255,255,255,0.1); color: white; cursor: pointer; font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+        }
+        .btn:hover { background: rgba(255,255,255,0.3); }
+        .btn.active { background: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.6); }
+        
+        .panel-overlay {
+            position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); z-index: 997; display: none;
+        }
+        .panel-overlay.active { display: block; }
+        
+        .region-count {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        /* Modal del Mapa */
+        .map-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .map-modal.open {
+            display: flex;
+        }
+        .map-container {
+            background: #1a3a5c;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 95vw;
+            max-height: 90vh;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            overflow: auto;
+        }
+        .map-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .map-close:hover {
+            background: #ff5252;
+            transform: scale(1.1);
+        }
+        .map-title {
+            color: white;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .map-svg {
+            width: 1000px;
+            height: 500px;
+            max-width: 90vw;
+        }
+        .map-country {
+            fill: #4a90d9;
+            stroke: #1a3a5c;
+            stroke-width: 0.5;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .map-country:hover {
+            fill: #00d084;
+            stroke: white;
+            stroke-width: 1.5;
+        }
+        .map-region {
+            fill: #2d5a87;
+            stroke: #1a3a5c;
+            stroke-width: 0.5;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0.7;
+        }
+        .map-region:hover {
+            fill: #667eea;
+            stroke: white;
+            stroke-width: 1.5;
+            opacity: 1;
+        }
+        .map-tooltip {
+            position: fixed;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            pointer-events: none;
+            z-index: 3000;
+            display: none;
+            white-space: nowrap;
+        }
+        .map-legend {
+            color: #aaa;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .map-legend span {
+            display: inline-block;
+            margin: 0 10px;
+        }
+        .legend-country { color: #4a90d9; }
+        .legend-region { color: #2d5a87; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="date-selector">
+            <label style="font-weight:600; font-size:14px;">📅 Fecha:</label>
+            <select id="dateSelect"></select>
+        </div>
+        <span id="dateBadge" class="badge">ACTUAL</span>
+        <span id="counter" style="background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:6px; font-size:13px;">0 países</span>
+        
+        <button class="btn" id="toggleInfoBtn" title="Mostrar/Ocultar información inferior">👁</button>
+        <button class="btn" id="mapBtn" title="Mapa del mundo">🗺</button>
+        <button class="btn" id="togglePanel"> Lista</button>
+        <button class="btn" id="fullscreenBtn">⛶ Pantalla Completa</button>
+    </div>
+
+    <div class="panel-overlay" id="panelOverlay"></div>
+    
+    <div class="file-panel" id="filePanel">
+        <div class="file-panel-header">
+            <h3>Países por Región</h3>
+            <button class="close-panel-btn" id="closePanelBtn">✕ Cerrar</button>
+        </div>
+        <div id="fileList"></div>
+    </div>
+
+    <!-- Modal del Mapa -->
+    <div class="map-modal" id="mapModal">
+        <div class="map-container">
+            <button class="map-close" id="mapClose">✕</button>
+            <div class="map-title">🌍 Mapa Interactivo - Haz clic en un país</div>
+            <div id="mapaContenedor"></div>
+            <div class="map-legend">
+                <span class="legend-country">■ País individual (clic directo)</span>
+                <span class="legend-region">■ Región (abre lista regional)</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="iframe-container">
+        <iframe id="viewer" src="about:blank" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+    </div>
+
+    <button class="nav-arrow" id="nav-left">‹</button>
+    <button class="nav-arrow" id="nav-right">›</button>
+
+    <div class="country-info" id="countryInfo">
+        <div class="country-name" id="countryName">Cargando...</div>
+        <div class="file-info" id="fileInfo">Preparando visor...</div>
+    </div>
+
+    <div class="map-tooltip" id="mapTooltip"></div>
+
+    <script src="fechasDisponibles.js"></script>
+    <script src="mapaMundo.js"></script>
+    
+    <script>
+        const paisesPorRegion = {
+            "Norteamérica": [
+                { nombre: "Canadá", archivo: "Canadá" },
+                { nombre: "Estados Unidos", archivo: "los Estados Unidos" }
+            ],
+            "Centroamérica y Caribe": [
+                { nombre: "México", archivo: "México" },
+                { nombre: "Guatemala", archivo: "Guatemala" },
+                { nombre: "Belice", archivo: "Belice" },
+                { nombre: "El Salvador", archivo: "El Salvador" },
+                { nombre: "Honduras", archivo: "Honduras" },
+                { nombre: "Nicaragua", archivo: "Nicaragua" },
+                { nombre: "Costa Rica", archivo: "Costa Rica" },
+                { nombre: "Panamá", archivo: "Panamá" },
+                { nombre: "Cuba", archivo: "Cuba" },
+                { nombre: "Haití", archivo: "Haití" },
+                { nombre: "República Dominicana", archivo: "la República Dominicana" },
+                { nombre: "Jamaica", archivo: "Jamaica" },
+                { nombre: "Trinidad y Tobago", archivo: "Trinidad y Tobago" },
+                { nombre: "Barbados", archivo: "Barbados" },
+                { nombre: "Bahamas", archivo: "Bahamas" },
+                { nombre: "Antigua y Barbuda", archivo: "Antigua y Barbuda" },
+                { nombre: "Dominica", archivo: "Dominica" },
+                { nombre: "Granada", archivo: "Granada" },
+                { nombre: "San Cristóbal y Nieves", archivo: "San Cristóbal y Nieves" },
+                { nombre: "San Vicente y las Granadinas", archivo: "San Vicente y las Granadinas" },
+                { nombre: "Santa Lucía", archivo: "Santa Lucía" }
+            ],
+            "Sudamérica": [
+                { nombre: "Argentina", archivo: "Argentina" },
+                { nombre: "Bolivia", archivo: "Bolivia" },
+                { nombre: "Brasil", archivo: "Brasil" },
+                { nombre: "Chile", archivo: "Chile" },
+                { nombre: "Colombia", archivo: "Colombia" },
+                { nombre: "Ecuador", archivo: "Ecuador" },
+                { nombre: "Guyana", archivo: "Guyana" },
+                { nombre: "Paraguay", archivo: "Paraguay" },
+                { nombre: "Perú", archivo: "Perú" },
+                { nombre: "Surinam", archivo: "Surinam" },
+                { nombre: "Uruguay", archivo: "Uruguay" },
+                { nombre: "Venezuela", archivo: "Venezuela" }
+            ],
+            "Europa": [
+                { nombre: "Albania", archivo: "Albania" },
+                { nombre: "Alemania", archivo: "Alemania" },
+                { nombre: "Andorra", archivo: "Andorra" },
+                { nombre: "Armenia", archivo: "Armenia" },
+                { nombre: "Austria", archivo: "Austria" },
+                { nombre: "Azerbaiyán", archivo: "Azerbaiyán" },
+                { nombre: "Bélgica", archivo: "Bélgica" },
+                { nombre: "Bielorrusia", archivo: "Bielorrusia" },
+                { nombre: "Bosnia y Herzegovina", archivo: "Bosnia y Herzegovina" },
+                { nombre: "Bulgaria", archivo: "Bulgaria" },
+                { nombre: "Chipre", archivo: "Chipre" },
+                { nombre: "Croacia", archivo: "Croacia" },
+                { nombre: "Dinamarca", archivo: "Dinamarca" },
+                { nombre: "Eslovaquia", archivo: "Eslovaquia" },
+                { nombre: "Eslovenia", archivo: "Eslovenia" },
+                { nombre: "España", archivo: "España" },
+                { nombre: "Estonia", archivo: "Estonia" },
+                { nombre: "Finlandia", archivo: "Finlandia" },
+                { nombre: "Francia", archivo: "Francia" },
+                { nombre: "Georgia", archivo: "Georgia" },
+                { nombre: "Grecia", archivo: "Grecia" },
+                { nombre: "Hungría", archivo: "Hungría" },
+                { nombre: "Irlanda", archivo: "Irlanda" },
+                { nombre: "Islandia", archivo: "Islandia" },
+                { nombre: "Italia", archivo: "Italia" },
+                { nombre: "Kazajistán", archivo: "Kazajistán" },
+                { nombre: "Letonia", archivo: "Letonia" },
+                { nombre: "Liechtenstein", archivo: "Liechtenstein" },
+                { nombre: "Lituania", archivo: "Lituania" },
+                { nombre: "Luxemburgo", archivo: "Luxemburgo" },
+                { nombre: "Malta", archivo: "Malta" },
+                { nombre: "Moldavia", archivo: "Moldavia" },
+                { nombre: "Mónaco", archivo: "Mónaco" },
+                { nombre: "Montenegro", archivo: "Montenegro" },
+                { nombre: "Noruega", archivo: "Noruega" },
+                { nombre: "Países Bajos", archivo: "los Países Bajos" },
+                { nombre: "Polonia", archivo: "Polonia" },
+                { nombre: "Portugal", archivo: "Portugal" },
+                { nombre: "Reino Unido", archivo: "Reino Unido" },
+                { nombre: "República Checa", archivo: "la República Checa" },
+                { nombre: "Rumania", archivo: "Rumania" },
+                { nombre: "Rusia", archivo: "Rusia" },
+                { nombre: "San Marino", archivo: "San Marino" },
+                { nombre: "Serbia", archivo: "Serbia" },
+                { nombre: "Suecia", archivo: "Suecia" },
+                { nombre: "Suiza", archivo: "Suiza" },
+                { nombre: "Turquía", archivo: "Turquía" },
+                { nombre: "Ucrania", archivo: "Ucrania" },
+                { nombre: "Ciudad del Vaticano", archivo: "Ciudad del Vaticano" }
+            ],
+            "África": [
+                { nombre: "Angola", archivo: "Angola" },
+                { nombre: "Argelia", archivo: "Argelia" },
+                { nombre: "Benín", archivo: "Benín" },
+                { nombre: "Botsuana", archivo: "Botsuana" },
+                { nombre: "Burkina Faso", archivo: "Burkina Faso" },
+                { nombre: "Burundi", archivo: "Burundi" },
+                { nombre: "Cabo Verde", archivo: "Cabo Verde" },
+                { nombre: "Camerún", archivo: "Camerún" },
+                { nombre: "Chad", archivo: "Chad" },
+                { nombre: "Comoras", archivo: "Comoras" },
+                { nombre: "Costa de Marfil", archivo: "Costa de Marfil" },
+                { nombre: "Egipto", archivo: "Egipto" },
+                { nombre: "Eritrea", archivo: "Eritrea" },
+                { nombre: "Eswatini", archivo: "Suazilandia" },
+                { nombre: "Etiopía", archivo: "Etiopía" },
+                { nombre: "Gabón", archivo: "Gabón" },
+                { nombre: "Gambia", archivo: "Gambia" },
+                { nombre: "Ghana", archivo: "Ghana" },
+                { nombre: "Guinea", archivo: "Guinea" },
+                { nombre: "Guinea Ecuatorial", archivo: "Guinea Ecuatorial" },
+                { nombre: "Guinea-Bisáu", archivo: "Guinea-Bisáu" },
+                { nombre: "Kenia", archivo: "Kenia" },
+                { nombre: "Lesoto", archivo: "Lesoto" },
+                { nombre: "Liberia", archivo: "Liberia" },
+                { nombre: "Libia", archivo: "Libia" },
+                { nombre: "Madagascar", archivo: "Madagascar" },
+                { nombre: "Malaui", archivo: "Malaui" },
+                { nombre: "Malí", archivo: "Mali" },
+                { nombre: "Marruecos", archivo: "Marruecos" },
+                { nombre: "Mauricio", archivo: "Mauricio" },
+                { nombre: "Mauritania", archivo: "Mauritania" },
+                { nombre: "Mozambique", archivo: "Mozambique" },
+                { nombre: "Namibia", archivo: "Namibia" },
+                { nombre: "Níger", archivo: "Níger" },
+                { nombre: "Nigeria", archivo: "Nigeria" },
+                { nombre: "República Centroafricana", archivo: "la República Centroafricana" },
+                { nombre: "Ruanda", archivo: "Ruanda" },
+                { nombre: "Santo Tomé y Príncipe", archivo: "Santo Tomé y Príncipe" },
+                { nombre: "Senegal", archivo: "Senegal" },
+                { nombre: "Seychelles", archivo: "Seychelles" },
+                { nombre: "Sierra Leona", archivo: "Sierra Leona" },
+                { nombre: "Somalia", archivo: "Somalia" },
+                { nombre: "Sudáfrica", archivo: "Sudáfrica" },
+                { nombre: "Sudán", archivo: "Sudán" },
+                { nombre: "Sudán del Sur", archivo: "Sudán del Sur" },
+                { nombre: "Tanzania", archivo: "Tanzania" },
+                { nombre: "Togo", archivo: "Togo" },
+                { nombre: "Túnez", archivo: "Túnez" },
+                { nombre: "Uganda", archivo: "Uganda" },
+                { nombre: "Yibuti", archivo: "Yibuti" },
+                { nombre: "Zambia", archivo: "Zambia" },
+                { nombre: "Zimbabue", archivo: "Zimbabue" }
+            ],
+            "Asia": [
+                { nombre: "Afganistán", archivo: "Afganistán" },
+                { nombre: "Arabia Saudita", archivo: "Arabia Saudita" },
+                { nombre: "Baréin", archivo: "Baréin" },
+                { nombre: "Bangladés", archivo: "Bangladés" },
+                { nombre: "Birmania", archivo: "Birmania" },
+                { nombre: "Brunéi", archivo: "Brunéi" },
+                { nombre: "Bután", archivo: "Bután" },
+                { nombre: "Camboya", archivo: "Camboya" },
+                { nombre: "Catar", archivo: "Catar" },
+                { nombre: "China", archivo: "la República Popular China" },
+                { nombre: "Corea del Norte", archivo: "Corea del Norte" },
+                { nombre: "Corea del Sur", archivo: "Corea del Sur" },
+                { nombre: "Emiratos Árabes Unidos", archivo: "los Emiratos Árabes Unidos" },
+                { nombre: "Filipinas", archivo: "Filipinas" },
+                { nombre: "India", archivo: "India" },
+                { nombre: "Indonesia", archivo: "Indonesia" },
+                { nombre: "Irak", archivo: "Irak" },
+                { nombre: "Irán", archivo: "Irán" },
+                { nombre: "Israel", archivo: "Israel" },
+                { nombre: "Japón", archivo: "Japón" },
+                { nombre: "Jordania", archivo: "Jordania" },
+                { nombre: "Kirguistán", archivo: "Kirguistán" },
+                { nombre: "Kuwait", archivo: "Kuwait" },
+                { nombre: "Laos", archivo: "Laos" },
+                { nombre: "Líbano", archivo: "Líbano" },
+                { nombre: "Malasia", archivo: "Malasia" },
+                { nombre: "Maldivas", archivo: "Maldivas" },
+                { nombre: "Mongolia", archivo: "Mongolia" },
+                { nombre: "Nepal", archivo: "Nepal" },
+                { nombre: "Omán", archivo: "Omán" },
+                { nombre: "Pakistán", archivo: "Pakistán" },
+                { nombre: "Singapur", archivo: "Singapur" },
+                { nombre: "Siria", archivo: "Siria" },
+                { nombre: "Sri Lanka", archivo: "Sri Lanka" },
+                { nombre: "Tailandia", archivo: "Tailandia" },
+                { nombre: "Tayikistán", archivo: "Tayikistán" },
+                { nombre: "Timor Oriental", archivo: "Timor Oriental" },
+                { nombre: "Turkmenistán", archivo: "Turkmenistán" },
+                { nombre: "Uzbekistán", archivo: "Uzbekistán" },
+                { nombre: "Vietnam", archivo: "Vietnam" },
+                { nombre: "Yemen", archivo: "Yemen" }
+            ],
+            "Oceanía": [
+                { nombre: "Australia", archivo: "Australia" },
+                { nombre: "Fiyi", archivo: "Fiyi" },
+                { nombre: "Kiribati", archivo: "Kiribati" },
+                { nombre: "Islas Marshall", archivo: "las Islas Marshall" },
+                { nombre: "Islas Salomón", archivo: "las Islas Salomón" },
+                { nombre: "Micronesia", archivo: "Micronesia" },
+                { nombre: "Nauru", archivo: "Nauru" },
+                { nombre: "Nueva Zelanda", archivo: "Nueva Zelanda" },
+                { nombre: "Palaos", archivo: "Palaos" },
+                { nombre: "Papúa Nueva Guinea", archivo: "Papúa Nueva Guinea" },
+                { nombre: "Samoa", archivo: "Samoa" },
+                { nombre: "Tonga", archivo: "Tonga" },
+                { nombre: "Tuvalu", archivo: "Tuvalu" },
+                { nombre: "Vanuatu", archivo: "Vanuatu" }
+            ]
+        };
+
+        let fechaActual = localStorage.getItem('lastDate') || window.fechaPorDefecto || fechasDisponibles[0];
+        let currentIndex = parseInt(localStorage.getItem('lastIndex') || '0');
+        let currentRegion = localStorage.getItem('currentRegion') || 'Norteamérica';
+        
+        const viewer = document.getElementById('viewer');
+        const countryName = document.getElementById('countryName');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileList = document.getElementById('fileList');
+        const filePanel = document.getElementById('filePanel');
+        const panelOverlay = document.getElementById('panelOverlay');
+        const countryInfo = document.getElementById('countryInfo');
+        const counter = document.getElementById('counter');
+        const dateSelect = document.getElementById('dateSelect');
+        const dateBadge = document.getElementById('dateBadge');
+        const mapModal = document.getElementById('mapModal');
+        const mapTooltip = document.getElementById('mapTooltip');
+        // ✅ 3. AQUÍ ES DONDE COLOCAS LA LÍNEA:
+        // Insertar el mapa SVG en el contenedor apenas se cargan las variables
+        document.getElementById('mapaContenedor').innerHTML = mapaSVG;
+
+        function formatearFecha(fechaStr) {
+            const anio = fechaStr.substring(0, 4);
+            const mes = parseInt(fechaStr.substring(4, 6));
+            const dia = parseInt(fechaStr.substring(6, 8));
+            const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            return `${dia} de ${meses[mes - 1]}, ${anio}`;
+        }
+
+        function getFilePath(paisArchivo, fecha) {
+            return `${fecha}/Diversidad sexual en ${paisArchivo} - Wikipedia, la enciclopedia libre ${fecha}.html`;
+        }
+
+        function loadFile(index, region = null) {
+            let paisData;
+            let regionName = region || currentRegion;
+            
+            if (region === null) {
+                let globalIndex = 0;
+                for (let reg in paisesPorRegion) {
+                    for (let p of paisesPorRegion[reg]) {
+                        if (globalIndex === index) {
+                            paisData = p;
+                            regionName = reg;
+                            break;
+                        }
+                        globalIndex++;
+                    }
+                    if (paisData) break;
+                }
+            } else {
+                paisData = paisesPorRegion[regionName][index];
+            }
+            
+            if (!paisData) return;
+            
+            currentIndex = index;
+            currentRegion = regionName;
+            const filePath = getFilePath(paisData.archivo, fechaActual);
+            
+            viewer.src = filePath;
+            countryName.textContent = `${paisData.nombre}`;
+            fileInfo.textContent = `📁 Carpeta: ${fechaActual} |  ${regionName}`;
+            
+            document.querySelectorAll('.file-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index && item.dataset.region === regionName);
+            });
+            
+            const activeItem = document.querySelector(`.file-item.active`);
+            if (activeItem) activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            localStorage.setItem('lastIndex', index);
+            localStorage.setItem('lastDate', fechaActual);
+            localStorage.setItem('currentRegion', regionName);
+        }
+
+        function expandRegion(regionName) {
+            const regions = document.querySelectorAll('.region');
+            regions.forEach(r => {
+                const header = r.querySelector('.region-header');
+                const content = r.querySelector('.region-content');
+                if (header.textContent.includes(regionName)) {
+                    header.classList.remove('collapsed');
+                    content.classList.remove('collapsed');
+                }
+            });
+        }
+
+        function initDateSelector() {
+            dateSelect.innerHTML = '';
+            fechasDisponibles.forEach((fecha) => {
+                const option = document.createElement('option');
+                option.value = fecha;
+                option.textContent = formatearFecha(fecha);
+                if (fecha === fechaActual) option.selected = true;
+                dateSelect.appendChild(option);
+            });
+            
+            if (fechaActual === fechasDisponibles[0]) {
+                dateBadge.textContent = "ACTUAL";
+                dateBadge.className = "badge";
+            } else {
+                dateBadge.textContent = "ARCHIVO";
+                dateBadge.className = "badge badge-old";
+            }
+        }
+
+        function initList() {
+            fileList.innerHTML = '';
+            let totalPaises = 0;
+            
+            for (let region in paisesPorRegion) {
+                const paises = paisesPorRegion[region];
+                totalPaises += paises.length;
+                
+                const regionDiv = document.createElement('div');
+                regionDiv.className = 'region';
+                
+                const regionHeader = document.createElement('div');
+                regionHeader.className = 'region-header';
+                regionHeader.innerHTML = `
+                    <span>${region} <span class="region-count">${paises.length}</span></span>
+                    <span class="arrow">▼</span>
+                `;
+                
+                const regionContent = document.createElement('div');
+                regionContent.className = 'region-content';
+                
+                paises.forEach((pais, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.dataset.region = region;
+                    item.dataset.index = index;
+                    item.textContent = `${index + 1}. ${pais.nombre}`;
+                    item.onclick = () => loadFile(index, region);
+                    regionContent.appendChild(item);
+                });
+                
+                regionHeader.onclick = () => {
+                    regionHeader.classList.toggle('collapsed');
+                    regionContent.classList.toggle('collapsed');
+                };
+                
+                if (region !== currentRegion) {
+                    regionHeader.classList.add('collapsed');
+                    regionContent.classList.add('collapsed');
+                }
+                
+                regionDiv.appendChild(regionHeader);
+                regionDiv.appendChild(regionContent);
+                fileList.appendChild(regionDiv);
+            }
+            
+            counter.textContent = `${totalPaises} países`;
+        }
+
+        function togglePanel() {
+            filePanel.classList.toggle('open');
+            panelOverlay.classList.toggle('active');
+            const isOpen = filePanel.classList.contains('open');
+            document.getElementById('togglePanel').textContent = isOpen ? '✕ Cerrar' : ' Lista';
+        }
+
+        function closePanel() {
+            filePanel.classList.remove('open');
+            panelOverlay.classList.remove('active');
+            document.getElementById('togglePanel').textContent = '📋 Lista';
+        }
+
+        function toggleInfo() {
+            countryInfo.classList.toggle('hidden');
+            const btn = document.getElementById('toggleInfoBtn');
+            btn.classList.toggle('active');
+            
+            if (countryInfo.classList.contains('hidden')) {
+                btn.textContent = '👁‍🗨';
+                btn.title = 'Mostrar información inferior';
+            } else {
+                btn.textContent = '👁';
+                btn.title = 'Ocultar información inferior';
+            }
+            
+            localStorage.setItem('infoVisible', !countryInfo.classList.contains('hidden'));
+        }
+
+        // Funciones del Mapa
+        function openMap() {
+            mapModal.classList.add('open');
+        }
+
+        function closeMap() {
+            mapModal.classList.remove('open');
+        }
+
+        function handleMapClick(e) {
+            const target = e.target;
+            const pais = target.dataset.pais;
+            const region = target.dataset.region;
+            
+            if (pais && region) {
+                // Buscar el país en la región
+                const paises = paisesPorRegion[region];
+                const index = paises.findIndex(p => p.nombre === pais || p.archivo === pais);
+                
+                if (index !== -1) {
+                    currentRegion = region;
+                    loadFile(index, region);
+                    closeMap();
+                    // Abrir el panel lateral para mostrar la región
+                    if (!filePanel.classList.contains('open')) {
+                        togglePanel();
+                    }
+                    expandRegion(region);
+                }
+            } else if (region && !pais) {
+                // Es una región, expandirla en el panel
+                currentRegion = region;
+                closeMap();
+                if (!filePanel.classList.contains('open')) {
+                    togglePanel();
+                }
+                expandRegion(region);
+            }
+        }
+
+        // Event listeners del mapa
+        document.getElementById('mapBtn').onclick = openMap;
+        document.getElementById('mapClose').onclick = closeMap;
+        mapModal.onclick = (e) => {
+            if (e.target === mapModal) closeMap();
+        };
+
+        // Tooltip del mapa
+        document.querySelectorAll('.map-country, .map-region').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const pais = el.dataset.pais;
+                const region = el.dataset.region;
+                let text = pais || `Región: ${region}`;
+                mapTooltip.textContent = text;
+                mapTooltip.style.display = 'block';
+            });
+            
+            el.addEventListener('mousemove', (e) => {
+                mapTooltip.style.left = e.clientX + 10 + 'px';
+                mapTooltip.style.top = e.clientY + 10 + 'px';
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                mapTooltip.style.display = 'none';
+            });
+            
+            el.addEventListener('click', handleMapClick);
+        });
+
+        dateSelect.addEventListener('change', (e) => {
+            fechaActual = e.target.value;
+            e.target.blur();
+            
+            if (fechaActual === fechasDisponibles[0]) {
+                dateBadge.textContent = "ACTUAL";
+                dateBadge.className = "badge";
+            } else {
+                dateBadge.textContent = "ARCHIVO";
+                dateBadge.className = "badge badge-old";
+            }
+            
+            loadFile(currentIndex, currentRegion);
+        });
+
+        document.getElementById('nav-right').onclick = () => {
+            const regions = Object.keys(paisesPorRegion);
+            const currentRegIndex = regions.indexOf(currentRegion);
+            const paises = paisesPorRegion[currentRegion];
+            
+            if (currentIndex + 1 < paises.length) {
+                loadFile(currentIndex + 1, currentRegion);
+            } else if (currentRegIndex < regions.length - 1) {
+                loadFile(0, regions[currentRegIndex + 1]);
+            } else {
+                loadFile(0, regions[0]);
+            }
+        };
+
+        document.getElementById('nav-left').onclick = () => {
+            const regions = Object.keys(paisesPorRegion);
+            const currentRegIndex = regions.indexOf(currentRegion);
+            const paises = paisesPorRegion[currentRegion];
+            
+            if (currentIndex > 0) {
+                loadFile(currentIndex - 1, currentRegion);
+            } else if (currentRegIndex > 0) {
+                const prevRegion = regions[currentRegIndex - 1];
+                loadFile(paisesPorRegion[prevRegion].length - 1, prevRegion);
+            } else {
+                const lastRegion = regions[regions.length - 1];
+                loadFile(paisesPorRegion[lastRegion].length - 1, lastRegion);
+            }
+        };
+        
+        document.getElementById('togglePanel').onclick = togglePanel;
+        document.getElementById('closePanelBtn').onclick = closePanel;
+        panelOverlay.onclick = closePanel;
+        document.getElementById('toggleInfoBtn').onclick = toggleInfo;
+        
+        document.getElementById('fullscreenBtn').onclick = () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                document.getElementById('nav-right').onclick();
+            }
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                document.getElementById('nav-left').onclick();
+            }
+            if (e.key === 'Escape') {
+                if (mapModal.classList.contains('open')) {
+                    closeMap();
+                } else {
+                    closePanel();
+                }
+            }
+            if (e.key === 'i' || e.key === 'I') toggleInfo();
+            if (e.key === 'm' || e.key === 'M') {
+                if (mapModal.classList.contains('open')) {
+                    closeMap();
+                } else {
+                    openMap();
+                }
+            }
+        });
+
+        // Inicialización
+        initDateSelector();
+        initList();
+        
+        let globalIndex = 0;
+        let loaded = false;
+        for (let reg in paisesPorRegion) {
+            for (let i = 0; i < paisesPorRegion[reg].length; i++) {
+                if (globalIndex === currentIndex && reg === currentRegion) {
+                    loadFile(i, reg);
+                    loaded = true;
+                    break;
+                }
+                globalIndex++;
+            }
+            if (loaded) break;
+        }
+        
+        if (!loaded) loadFile(0, 'Norteamérica');
+        
+        const infoVisible = localStorage.getItem('infoVisible');
+        if (infoVisible === 'false') {
+            toggleInfo();
+        }
+    </script>
+</body>
+</html>
